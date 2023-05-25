@@ -7,7 +7,14 @@ import (
 	"os/exec"
 )
 
-func runTopCommand(outputFile string) error {
+type CommandExecutor interface {
+	RunCommand(outputFile string) error
+	readLinesFromFile(filename string) ([]string, error)
+}
+
+type TopCommandExecutor struct{}
+
+func (t TopCommandExecutor) RunCommand(outputFile string) error {
 	f, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		log.Printf("Failed to open file: %s\n", err)
@@ -27,7 +34,7 @@ func runTopCommand(outputFile string) error {
 	return nil
 }
 
-func readLinesFromFile(filename string) ([]string, error) {
+func (t TopCommandExecutor) readLinesFromFile(filename string) ([]string, error) {
 	file, err := os.OpenFile(filename, os.O_RDONLY, 0666)
 	if err != nil {
 		log.Printf("Failed to open file: %s\n", err)

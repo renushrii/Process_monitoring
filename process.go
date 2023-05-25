@@ -27,25 +27,9 @@ func processData(lines []string) ([]Data, error) {
 
 		name := words[11]
 
-		data := Data{
-			pId:     pID,
-			cpu:     cpu,
-			command: name,
-		}
+		data := NewData(pID, cpu, name)
 
 		dataList = append(dataList, data)
 	}
 	return dataList, nil
-}
-
-func getAlertDataList(dataList []Data) []Data {
-	alertDataList := make([]Data, 0)
-
-	for _, data := range dataList {
-		if data.isCPUUsageOverThreshold() {
-			alertDataList = append(alertDataList, data)
-		}
-	}
-
-	return alertDataList
 }

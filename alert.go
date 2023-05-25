@@ -13,14 +13,28 @@ type Data struct {
 	command string
 }
 
-func (d Data) isCPUUsageOverThreshold() bool {
-	if d.cpu > threshold {
-		return false
+func NewData(pID int, cpu float64, command string) Data {
+	return Data{
+		pId:     pID,
+		cpu:     cpu,
+		command: command,
 	}
-	return true
 }
 
-func sendMails(dataList []Data) error {
+type EmailSender interface {
+	sendMails(dataList []Data) error
+}
+
+type SmtpEmailSender struct{}
+
+func (d Data) isCPUUsageOverThreshold(threshold float64) bool {
+	if d.cpu > threshold {
+		return true
+	}
+	return false
+}
+
+func (sms SmtpEmailSender) sendMails(dataList []Data) error {
 	from := os.Getenv("EMAIL")
 	password := os.Getenv("PASSWORD")
 
