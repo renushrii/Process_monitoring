@@ -7,10 +7,12 @@ import (
 	"os"
 )
 
+// Alerter sends alerts for high CPU usage.
 type Alerter interface {
 	Alert(processMetric ProcessMetric)
 }
 
+// EmailAlerter sends email alerts for high CPU usage.
 type EmailAlerter struct {
 	From     string
 	Password string
@@ -19,6 +21,7 @@ type EmailAlerter struct {
 	Port     string
 }
 
+// NewEmailAlerter creates a new instance of EmailAlerter.
 func NewEmailAlerter() *EmailAlerter {
 	from := os.Getenv("EMAIL")
 	password := os.Getenv("PASSWORD")
@@ -36,6 +39,7 @@ func NewEmailAlerter() *EmailAlerter {
 	}
 }
 
+// Alert sends an email alert for the given process metric.
 func (ea *EmailAlerter) Alert(processMetric ProcessMetric) error {
 	auth := smtp.PlainAuth("", ea.From, ea.Password, ea.Host+":"+ea.Port)
 

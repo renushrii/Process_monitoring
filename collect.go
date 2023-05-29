@@ -13,10 +13,10 @@ type CommandExporter interface {
 }
 
 // TopCommandExecutor executes the top command and collects the output.
-type TopCommandExeporter struct{}
+type TopCommandExporter struct{}
 
 // RunCommand executes the top command and writes the output to a file.
-func (t *TopCommandExeporter) RunCommand() ([]string, error) {
+func (t *TopCommandExporter) RunCommand() ([]string, error) {
 	buffer := bufio.NewScanner(os.Stdout)
 
 	cmd := exec.Command("top", "-b", "-n", "1")

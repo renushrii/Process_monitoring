@@ -65,7 +65,7 @@ func (pm *ProcessMonitor) AlertOnHighUsage(processMetrics []ProcessMetric) {
 
 // main initializes the necessary components and starts the process monitor.
 func main() {
-	cmdExecutor := &TopCommandExeporter{}
+	cmdExecutor := &TopCommandExporter{}
 	processor := ProcessDataProcessor{}
 	alerter := &EmailAlerter{}
 	threshold := 10.0
