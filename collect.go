@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"log"
 	"os"
 	"os/exec"
@@ -9,12 +8,11 @@ import (
 
 type CommandExecutor interface {
 	RunCommand(outputFile string) error
-	readLinesFromFile(filename string) ([]string, error)
 }
 
 type TopCommandExecutor struct{}
 
-func (t TopCommandExecutor) RunCommand(outputFile string) error {
+func (t *TopCommandExecutor) RunCommand(outputFile string) error {
 	f, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		log.Printf("Failed to open file: %s\n", err)
@@ -32,24 +30,4 @@ func (t TopCommandExecutor) RunCommand(outputFile string) error {
 	}
 
 	return nil
-}
-
-func (t TopCommandExecutor) readLinesFromFile(filename string) ([]string, error) {
-	file, err := os.OpenFile(filename, os.O_RDONLY, 0666)
-	if err != nil {
-		log.Printf("Failed to open file: %s\n", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return lines, nil
 }

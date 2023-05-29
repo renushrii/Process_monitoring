@@ -3,61 +3,67 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 )
 
 type ProcessMonitor struct {
 	cmdExecutor CommandExecutor
 	threshold   float64
+	Processor   ProcessDataProcessor
+	Alerter     Alerter
+}
+
+func NewProcessMonitor(cmdExecutor CommandExecutor, processor ProcessDataProcessor, alerter Alerter, threshold float64) *ProcessMonitor {
+	return &ProcessMonitor{
+		cmdExecutor: cmdExecutor,
+		Processor:   processor,
+		Alerter:     alerter,
+		threshold:   threshold,
+	}
+}
+
+func (pm *ProcessMonitor) Start() {
+	for {
+		if err := pm.Monitor(); err != nil {
+			log.Fatalf("Monitoring failed: %v", err)
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func main() {
-	cmdExecutor := TopCommandExecutor{}
+	cmdExecutor := &TopCommandExecutor{}
+	processor := ProcessDataProcessor{}
+	alerter := &EmailAlerter{}
 	threshold := 10.0
 
-	monitor := ProcessMonitor{
-		cmdExecutor: cmdExecutor,
-		threshold:   threshold,
-	}
-
-	err := monitor.Monitor()
-	if err != nil {
-		log.Fatalf("Monitoring failed: %v", err)
-	}
+	monitor := NewProcessMonitor(cmdExecutor, processor, alerter, threshold)
+	monitor.Start()
 }
 
-func (pm ProcessMonitor) Monitor() error {
+func (pm *ProcessMonitor) Monitor() error {
 	outputFile := os.Getenv("OUTPUT_FILE")
 
 	if err := pm.cmdExecutor.RunCommand(outputFile); err != nil {
 		log.Fatalf("Failed to run top command: %v", err)
 	}
 
-	lines, err := pm.cmdExecutor.readLinesFromFile(outputFile)
+	lines, err := ReadLinesFromFile(outputFile)
 	if err != nil {
 		log.Fatalf("Failed to read lines from file: %v", err)
 	}
 
-	dataList, err := processData(lines)
-	if err != nil {
-		log.Fatalf("Failed to read lines from file: %v", err)
-	}
-
-	pm.AlertOnHighUsage(dataList)
+	processMetrics := pm.Processor.ProcessData(lines)
+	pm.AlertOnHighUsage(processMetrics)
 
 	return nil
 }
 
-func (pm ProcessMonitor) AlertOnHighUsage(dataList []Data) {
-	alertDataList := make([]Data, 0)
-
-	for _, data := range dataList {
-		if data.isCPUUsageOverThreshold(pm.threshold) {
-			alertDataList = append(alertDataList, data)
+func (pm *ProcessMonitor) AlertOnHighUsage(processMetrics []ProcessMetric) {
+	for _, metric := range processMetrics {
+		if metric.CPU > pm.threshold {
+			pm.Alerter.Alert(metric)
 		}
-	}
-
-	err := sendMails(dataList)
-	if err != nil {
-		log.Fatalf("Failed to send mail: %v", err)
 	}
 }

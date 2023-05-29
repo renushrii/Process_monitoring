@@ -6,10 +6,31 @@ import (
 	"strings"
 )
 
-func processData(lines []string) ([]Data, error) {
-	dataList := make([]Data, 0)
+type ProcessMetric struct {
+	PID     int
+	Command string
+	CPU     float64
+	Memory  float64
+}
 
-	for i := 7; i < len(lines); i++ {
+func NewProcessMetric(pID int, cpu float64, command string) ProcessMetric {
+	return ProcessMetric{
+		PID:     pID,
+		CPU:     cpu,
+		Command: command,
+	}
+}
+
+type ProcessDataProcessor struct {
+	Threshold float64
+}
+
+const ProcessDataStartingLineIndex = 7
+
+func (pdp *ProcessDataProcessor) ProcessData(lines []string) []ProcessMetric {
+	processMetrics := make([]ProcessMetric, 0)
+
+	for i := ProcessDataStartingLineIndex; i < len(lines); i++ {
 		line := lines[i]
 		words := strings.Fields(line)
 
@@ -27,9 +48,9 @@ func processData(lines []string) ([]Data, error) {
 
 		name := words[11]
 
-		data := NewData(pID, cpu, name)
+		processMetric := NewProcessMetric(pID, cpu, name)
 
-		dataList = append(dataList, data)
+		processMetrics = append(processMetrics, processMetric)
 	}
-	return dataList, nil
+	return processMetrics
 }
