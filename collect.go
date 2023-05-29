@@ -1,33 +1,37 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"os"
 	"os/exec"
 )
 
-type CommandExecutor interface {
+// CommandExecutor executes commands and collects output.
+type CommandExporter interface {
 	RunCommand(outputFile string) error
 }
 
-type TopCommandExecutor struct{}
+// TopCommandExecutor executes the top command and collects the output.
+type TopCommandExeporter struct{}
 
-func (t *TopCommandExecutor) RunCommand(outputFile string) error {
-	f, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		log.Printf("Failed to open file: %s\n", err)
-		return err
-	}
-	defer f.Close()
+// RunCommand executes the top command and writes the output to a file.
+func (t *TopCommandExeporter) RunCommand() ([]string, error) {
+	buffer := bufio.NewScanner(os.Stdout)
 
 	cmd := exec.Command("top", "-b", "-n", "1")
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = f
+	cmd.Stdout = os.Stdout
 
-	err = cmd.Run()
-	if err != nil {
-		log.Printf("Failed to run command: %s\n", err)
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to execute command: %s\n", err)
+		return nil, err
 	}
 
-	return nil
+	var lines []string
+	for buffer.Scan() {
+		lines = append(lines, buffer.Text())
+	}
+
+	return lines, nil
 }
