@@ -18,16 +18,18 @@ type ProcessMonitor struct {
 	Processor   ProcessDataProcessor
 	Alerter     Alerter
 	Metrics     *Metrics
+	Buffer      *RingBuffer
 }
 
 // NewProcessMonitor creates a new instance of ProcessMonitor.
-func NewProcessMonitor(cmdExecutor CommandExporter, processor ProcessDataProcessor, alerter Alerter, threshold float64) *ProcessMonitor {
+func NewProcessMonitor(cmdExecutor CommandExporter, processor ProcessDataProcessor, alerter Alerter, threshold float64, metrics *Metrics) *ProcessMonitor {
 	return &ProcessMonitor{
 		cmdExecutor: cmdExecutor,
 		Processor:   processor,
 		Alerter:     alerter,
 		Threshold:   threshold,
 		Metrics:     metrics,
+		Buffer:      NewRingBuffer(120),
 	}
 }
 
@@ -58,7 +60,15 @@ func (pm *ProcessMonitor) Monitor() error {
 	processMetrics := pm.Processor.ProcessData(lines)
 	pm.Metrics.UpdateMetrics(processMetrics)
 
-	pm.AlertOnHighUsage(processMetrics)
+	// Add processMetrics to the ring buffer
+	for _, metric := range processMetrics {
+		pm.Buffer.Add(metric)
+	}
+
+	// Get the slice of processMetrics from the ring buffer
+	bufferSlice := pm.Buffer.GetSlice()
+
+	pm.AlertOnHighUsage(bufferSlice) // Alert based on bufferSlice
 
 	return nil
 }

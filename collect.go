@@ -35,3 +35,42 @@ func (t *TopCommandExporter) RunCommand() ([]string, error) {
 
 	return lines, nil
 }
+
+type RingBuffer struct {
+	data         []ProcessMetric
+	size         int
+	readIndex    int
+	writeIndex   int
+	isBufferFull bool
+}
+
+func NewRingBuffer(size int) *RingBuffer {
+	return &RingBuffer{
+		data:         make([]ProcessMetric, size),
+		size:         size,
+		readIndex:    0,
+		writeIndex:   0,
+		isBufferFull: false,
+	}
+}
+
+func (rb *RingBuffer) Add(processMetric ProcessMetric) {
+	rb.data[rb.writeIndex] = processMetric
+	rb.writeIndex = (rb.writeIndex + 1) % rb.size
+
+	if rb.writeIndex == rb.readIndex {
+		rb.isBufferFull = true
+		rb.readIndex = (rb.readIndex + 1) % rb.size
+	}
+}
+
+func (rb *RingBuffer) GetSlice() []ProcessMetric {
+	if !rb.isBufferFull {
+		return rb.data[:rb.writeIndex]
+	}
+
+	result := make([]ProcessMetric, rb.size)
+	copy(result, rb.data[rb.readIndex:])
+	copy(result[rb.size-rb.readIndex:], rb.data[:rb.writeIndex])
+	return result
+}
