@@ -2,8 +2,13 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // ProcessMonitor is responsible for monitoring processes and alerting on high CPU usage.
@@ -12,6 +17,7 @@ type ProcessMonitor struct {
 	Threshold   float64
 	Processor   ProcessDataProcessor
 	Alerter     Alerter
+	Metrics     *Metrics
 }
 
 // NewProcessMonitor creates a new instance of ProcessMonitor.
@@ -21,6 +27,7 @@ func NewProcessMonitor(cmdExecutor CommandExporter, processor ProcessDataProcess
 		Processor:   processor,
 		Alerter:     alerter,
 		Threshold:   threshold,
+		Metrics:     metrics,
 	}
 }
 
@@ -49,6 +56,8 @@ func (pm *ProcessMonitor) Monitor() error {
 	}
 
 	processMetrics := pm.Processor.ProcessData(lines)
+	pm.Metrics.UpdateMetrics(processMetrics)
+
 	pm.AlertOnHighUsage(processMetrics)
 
 	return nil
@@ -63,6 +72,34 @@ func (pm *ProcessMonitor) AlertOnHighUsage(processMetrics []ProcessMetric) {
 	}
 }
 
+// Metrics holds the Prometheus metrics.
+type Metrics struct {
+	cpuUsage *prometheus.GaugeVec
+}
+
+// Initialize Prometheus metrics.
+func InitMetrics() *Metrics {
+	cpuUsage := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "process_cpu_usage",
+			Help: "Current CPU usage of processes",
+		},
+		[]string{"pid", "command"},
+	)
+	prometheus.MustRegister(cpuUsage)
+
+	return &Metrics{
+		cpuUsage: cpuUsage,
+	}
+}
+
+// UpdateMetrics updates the Prometheus metrics based on the process data.
+func (m *Metrics) UpdateMetrics(processMetrics []ProcessMetric) {
+	for _, metric := range processMetrics {
+		m.cpuUsage.WithLabelValues(strconv.Itoa(metric.PID), metric.Command).Set(metric.CPU)
+	}
+}
+
 // main initializes the necessary components and starts the process monitor.
 func main() {
 	cmdExecutor := &TopCommandExporter{}
@@ -70,6 +107,12 @@ func main() {
 	alerter := &EmailAlerter{}
 	threshold := 10.0
 
-	monitor := NewProcessMonitor(cmdExecutor, processor, alerter, threshold)
-	monitor.Start()
+	metrics := InitMetrics() // Initialize Prometheus metrics
+
+	monitor := NewProcessMonitor(cmdExecutor, processor, alerter, threshold, metrics)
+	go monitor.Start()
+
+	// Create HTTP server for Prometheus metrics
+	http.Handle("/metrics", promhttp.Handler())
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
