@@ -11,25 +11,33 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// BufferedProcessMetric holds the process metrics along with their timestamps.
+type BufferedMetric struct {
+	ProcessMetric ProcessMetric
+	Timestamp     time.Time
+}
+
 // ProcessMonitor is responsible for monitoring processes and alerting on high CPU usage.
 type ProcessMonitor struct {
-	cmdExecutor CommandExporter
-	Threshold   float64
-	Processor   ProcessDataProcessor
-	Alerter     Alerter
-	Metrics     *Metrics
-	Buffer      *RingBuffer
+	cmdExecutor     CommandExporter
+	Threshold       float64
+	Processor       ProcessDataProcessor
+	Alerter         Alerter
+	Metrics         *Metrics
+	BufferDurations map[int]time.Duration
+	Buffers         map[int]*RingBuffer
 }
 
 // NewProcessMonitor creates a new instance of ProcessMonitor.
 func NewProcessMonitor(cmdExecutor CommandExporter, processor ProcessDataProcessor, alerter Alerter, threshold float64, metrics *Metrics) *ProcessMonitor {
 	return &ProcessMonitor{
-		cmdExecutor: cmdExecutor,
-		Processor:   processor,
-		Alerter:     alerter,
-		Threshold:   threshold,
-		Metrics:     metrics,
-		Buffer:      NewRingBuffer(120),
+		cmdExecutor:     cmdExecutor,
+		Processor:       processor,
+		Alerter:         alerter,
+		Threshold:       threshold,
+		Metrics:         metrics,
+		BufferDurations: make(map[int]time.Duration),
+		Buffers:         make(map[int]*RingBuffer),
 	}
 }
 
@@ -60,15 +68,28 @@ func (pm *ProcessMonitor) Monitor() error {
 	processMetrics := pm.Processor.ProcessData(lines)
 	pm.Metrics.UpdateMetrics(processMetrics)
 
-	// Add processMetrics to the ring buffer
+	// Create and update ring buffers for each process PID
 	for _, metric := range processMetrics {
-		pm.Buffer.Add(metric)
+		buffer, exists := pm.Buffers[metric.PID]
+		if !exists {
+			duration, exists := pm.BufferDurations[metric.PID]
+			if !exists {
+				duration = 2 * time.Minute // Change buffer duration here
+				pm.BufferDurations[metric.PID] = duration
+			}
+
+			bufferSize := int(duration.Seconds())
+			buffer = NewRingBuffer(bufferSize)
+			pm.Buffers[metric.PID] = buffer
+		}
+
+		buffer.Add(metric)
+
+		if buffer.isBufferFullIsFull() {
+			bufferSlice := buffer.GetSlice()
+			pm.AlertOnHighUsage(bufferSlice)
+		}
 	}
-
-	// Get the slice of processMetrics from the ring buffer
-	bufferSlice := pm.Buffer.GetSlice()
-
-	pm.AlertOnHighUsage(bufferSlice) // Alert based on bufferSlice
 
 	return nil
 }

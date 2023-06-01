@@ -4,6 +4,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ProcessMetric represents the metrics of a process.
@@ -25,7 +26,9 @@ func NewProcessMetric(pID int, cpu float64, command string) ProcessMetric {
 
 // ProcessDataProcessor is responsible for processing process data.
 type ProcessDataProcessor struct {
-	Threshold float64
+	Threshold      float64
+	BufferDuration time.Duration
+	Buffers        map[int]*RingBuffer
 }
 
 // ProcessDataStartingLineIndex is the index of the starting line in the process data
